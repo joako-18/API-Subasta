@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
+import os, uuid, shutil
 
 from app.core.dependencies import get_current_user
 from app.db.database import get_db
@@ -14,15 +15,39 @@ from app.services import producto_service
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
 
+UPLOAD_DIR = "static/imagenes"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@router.post("", response_model=ProductoResumen, status_code=status.HTTP_201_CREATED)
-async def crear(
-    data: ProductoCreate,
+@router.post("", status_code=201)
+async def crear_producto(
+    nombre: str = Form(...),
+    descripcion: str = Form(...),
+    precio_inicial: float = Form(...),
+    fecha_inicio: str = Form(...),
+    fecha_fin: str = Form(...),
+    imagen: UploadFile = File(None),  # opcional
     db: AsyncSession = Depends(get_db),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user)
 ):
-    """HU-P1: Publicar un nuevo producto en subasta."""
-    return await producto_service.crear_producto(db, data, current_user.id)
+    imagen_url = None
+    if imagen and imagen.filename:
+        ext = imagen.filename.split(".")[-1]
+        filename = f"{uuid.uuid4()}.{ext}"
+        path = f"{UPLOAD_DIR}/{filename}"
+        with open(path, "wb") as f:
+            shutil.copyfileobj(imagen.file, f)
+        imagen_url = f"http://3.211.145.251:8000/static/imagenes/{filename}"
+
+    return await producto_service.crear_producto(
+        db=db,
+        nombre=nombre,
+        descripcion=descripcion,
+        precio_inicial=precio_inicial,
+        imagen_url=imagen_url,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        usuario_id=current_user.id
+    )
 
 
 @router.get("", response_model=list[ProductoResumen])
