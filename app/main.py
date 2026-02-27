@@ -1,24 +1,18 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
 from app.db.init_db import init_db
 
-from fastapi.staticfiles import StaticFiles
-import os
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: crear tablas e índices
     await init_db()
     yield
-    # Shutdown: nada que limpiar (SQLAlchemy cierra el pool)
-    
-    os.makedirs("static/imagenes", exist_ok=True)
-    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 app = FastAPI(
@@ -33,11 +27,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Ajustar en producción
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Incluir todos los routers
+# Archivos estáticos para imágenes
+os.makedirs("static/imagenes", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(api_router)

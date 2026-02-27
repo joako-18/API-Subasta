@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,19 +7,38 @@ from sqlalchemy.orm import selectinload
 from app.models.producto import Producto
 from app.models.puja import Puja
 from app.models.usuario import Usuario
-from app.schemas.producto import ProductoCreate, ProductoDetalle, ProductoResumen, ProductoUpdate
+from app.schemas.producto import ProductoDetalle, ProductoResumen, ProductoUpdate
 
 
 async def crear_producto(
-    db: AsyncSession, data: ProductoCreate, usuario_id: int
+    db: AsyncSession,
+    nombre: str,
+    descripcion: str,
+    precio_inicial: float,
+    imagen_url: str | None,
+    fecha_inicio: str,
+    fecha_fin: str,
+    usuario_id: int,
 ) -> Producto:
     """HU-P1: Registra un nuevo producto."""
-    if data.fecha_fin <= data.fecha_inicio:
+    fecha_inicio_dt = datetime.fromisoformat(fecha_inicio)
+    fecha_fin_dt = datetime.fromisoformat(fecha_fin)
+
+    if fecha_fin_dt <= fecha_inicio_dt:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="fecha_fin debe ser mayor que fecha_inicio",
         )
-    producto = Producto(**data.model_dump(), usuario_id=usuario_id)
+
+    producto = Producto(
+        nombre=nombre,
+        descripcion=descripcion,
+        precio_inicial=precio_inicial,
+        imagen_url=imagen_url,
+        fecha_inicio=fecha_inicio_dt,
+        fecha_fin=fecha_fin_dt,
+        usuario_id=usuario_id,
+    )
     db.add(producto)
     await db.flush()
     await db.refresh(producto)
@@ -27,7 +47,6 @@ async def crear_producto(
 
 async def listar_productos(db: AsyncSession) -> list[ProductoResumen]:
     """HU-03: Lista todos los productos con su precio actual (puja más alta)."""
-    # Subconsulta: puja máxima por producto
     max_puja = (
         select(Puja.producto_id, func.max(Puja.cantidad).label("max_cantidad"))
         .group_by(Puja.producto_id)
@@ -58,7 +77,6 @@ async def obtener_producto_detalle(db: AsyncSession, producto_id: int) -> Produc
     if not producto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
 
-    # Precio actual
     max_cantidad = (
         await db.execute(
             select(func.max(Puja.cantidad)).where(Puja.producto_id == producto_id)
@@ -83,7 +101,7 @@ async def obtener_producto_detalle(db: AsyncSession, producto_id: int) -> Produc
 async def editar_producto(
     db: AsyncSession, producto_id: int, data: ProductoUpdate, usuario_id: int
 ) -> Producto:
-    """HU-P3: Edita nombre/descripción; no precio si ya hay pujas."""
+    """HU-P3: Edita nombre/descripción."""
     producto = await db.get(Producto, producto_id)
     if not producto:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
