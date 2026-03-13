@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -9,16 +9,24 @@ from app.models.producto import Producto
 from app.models.puja import Puja
 from app.schemas.puja import GanadorResponse, PujaCreate, PujaPublica
 
-
-def _naive_utc_now() -> datetime:
-    """Devuelve datetime UTC sin timezone info (compatible con MariaDB)."""
-    return datetime.utcnow()
+# Offset de México Central (UTC-6). Ajusta a UTC-5 en horario de verano si es necesario.
+MEXICO_TZ = timezone(timedelta(hours=-6))
 
 
-def _as_naive(dt: datetime) -> datetime:
-    """Convierte a naive datetime para comparar con valores de MariaDB."""
+def _now_mexico() -> datetime:
+    """Hora actual en México (naive, sin tzinfo), para comparar con fechas de la DB."""
+    return datetime.now(MEXICO_TZ).replace(tzinfo=None)
+
+
+def _as_naive_mexico(dt: datetime) -> datetime:
+    """
+    Convierte un datetime de la DB a naive en hora de México.
+    Si la DB guarda naive (como MariaDB suele hacer), se asume que ya está en hora México.
+    Si tiene tzinfo, se convierte.
+    """
     if dt.tzinfo is not None:
-        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt.astimezone(MEXICO_TZ).replace(tzinfo=None)
+    # naive: asumimos que está guardado en hora local México (tal como lo mandó el app)
     return dt
 
 
@@ -27,7 +35,7 @@ async def realizar_puja(
 ) -> Puja:
     """
     HU-04: Registra una puja validando:
-    - El producto existe y está activo.
+    - El producto existe.
     - La puja es mayor a la más alta actual.
     - Está dentro del rango de fecha_inicio / fecha_fin.
     """
@@ -38,24 +46,27 @@ async def realizar_puja(
     )
     producto = (await db.execute(stmt)).scalar_one_or_none()
     if not producto:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
 
-    ahora = _naive_utc_now()
+    ahora = _now_mexico()
+    fecha_fin = _as_naive_mexico(producto.fecha_fin)
+    fecha_inicio = _as_naive_mexico(producto.fecha_inicio)
 
-    # HU-06: bloquear si fecha_fin ya pasó
-    if ahora > _as_naive(producto.fecha_fin):
+    if ahora > fecha_fin:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La subasta ha finalizado. No se aceptan más pujas.",
         )
 
-    if ahora < _as_naive(producto.fecha_inicio):
+    if ahora < fecha_inicio:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La subasta aún no ha comenzado.",
         )
 
-    # Validar que la puja supera la más alta actual
     max_cantidad = (
         await db.execute(
             select(func.max(Puja.cantidad)).where(Puja.producto_id == data.producto_id)
@@ -110,10 +121,15 @@ async def obtener_ganador(
     """HU-06: Identifica la puja ganadora una vez finalizada la subasta."""
     producto = await db.get(Producto, producto_id)
     if not producto:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
 
-    ahora = _naive_utc_now()
-    if ahora <= _as_naive(producto.fecha_fin):
+    ahora = _now_mexico()
+    fecha_fin = _as_naive_mexico(producto.fecha_fin)
+
+    if ahora <= fecha_fin:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="La subasta aún no ha finalizado.",

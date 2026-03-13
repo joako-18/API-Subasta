@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
-from app.db.database import AsyncSessionLocal, get_db
+from app.db.database import get_db
 from app.models.usuario import Usuario
 from app.schemas.puja import GanadorResponse, PujaCreate, PujaPublica
 from app.services import puja_service
@@ -20,7 +20,6 @@ async def realizar_puja(
     """HU-04: Registrar una puja y notificar en tiempo real por WebSocket."""
     puja = await puja_service.realizar_puja(db, data, current_user.id)
 
-    # Broadcast a todos los clientes conectados al producto
     await manager.broadcast(
         data.producto_id,
         {
@@ -43,19 +42,18 @@ async def realizar_puja(
         fecha=puja.fecha,
     )
 
-
 @router.get("/producto/{producto_id}/ganador", response_model=GanadorResponse)
 async def ganador(producto_id: int, db: AsyncSession = Depends(get_db)):
+    """HU-06: Obtener el ganador de la subasta finalizada."""
     return await puja_service.obtener_ganador(db, producto_id)
+
 
 @router.get("/producto/{producto_id}", response_model=list[PujaPublica])
 async def historial(producto_id: int, db: AsyncSession = Depends(get_db)):
+    """HU-05: Historial de pujas de un producto, ordenado por fecha descendente."""
     return await puja_service.listar_pujas_producto(db, producto_id)
 
 
-# ──────────────────────────────────────────
-# WebSocket: ws://<host>/ws/{producto_id}
-# ──────────────────────────────────────────
 @router.websocket("/ws/{producto_id}")
 async def websocket_subasta(websocket: WebSocket, producto_id: int):
     """
@@ -66,7 +64,6 @@ async def websocket_subasta(websocket: WebSocket, producto_id: int):
     await manager.connect(producto_id, websocket)
     try:
         while True:
-            # Mantener la conexión viva; el servidor solo envía, no recibe comandos
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(producto_id, websocket)

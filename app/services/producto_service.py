@@ -21,6 +21,8 @@ async def crear_producto(
     usuario_id: int,
 ) -> Producto:
     """HU-P1: Registra un nuevo producto."""
+    # Las fechas llegan del app en hora de México y se guardan tal cual (naive).
+    # puja_service las compara contra datetime.now(MEXICO_TZ) para consistencia.
     fecha_inicio_dt = datetime.fromisoformat(fecha_inicio)
     fecha_fin_dt = datetime.fromisoformat(fecha_fin)
 
@@ -75,7 +77,10 @@ async def obtener_producto_detalle(db: AsyncSession, producto_id: int) -> Produc
     )
     producto = (await db.execute(stmt)).scalar_one_or_none()
     if not producto:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
 
     max_cantidad = (
         await db.execute(
@@ -104,9 +109,15 @@ async def editar_producto(
     """HU-P3: Edita nombre/descripción."""
     producto = await db.get(Producto, producto_id)
     if not producto:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
     if producto.usuario_id != usuario_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado",
+        )
 
     if data.nombre is not None:
         producto.nombre = data.nombre
@@ -126,9 +137,15 @@ async def eliminar_producto(
     """HU-P4: Elimina producto; bloquea si hay pujas activas."""
     producto = await db.get(Producto, producto_id)
     if not producto:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Producto no encontrado",
+        )
     if producto.usuario_id != usuario_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado",
+        )
 
     hay_pujas = (
         await db.execute(
