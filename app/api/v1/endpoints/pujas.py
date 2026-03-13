@@ -44,16 +44,13 @@ async def realizar_puja(
     )
 
 
-@router.get("/producto/{producto_id}", response_model=list[PujaPublica])
-async def historial(producto_id: int, db: AsyncSession = Depends(get_db)):
-    """HU-05: Historial de pujas de un producto, ordenado por fecha descendente."""
-    return await puja_service.listar_pujas_producto(db, producto_id)
-
-
 @router.get("/producto/{producto_id}/ganador", response_model=GanadorResponse)
 async def ganador(producto_id: int, db: AsyncSession = Depends(get_db)):
-    """HU-06: Obtener el ganador de la subasta finalizada."""
     return await puja_service.obtener_ganador(db, producto_id)
+
+@router.get("/producto/{producto_id}", response_model=list[PujaPublica])
+async def historial(producto_id: int, db: AsyncSession = Depends(get_db)):
+    return await puja_service.listar_pujas_producto(db, producto_id)
 
 
 # ──────────────────────────────────────────
