@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from pydantic import BaseModel, EmailStr
 
 
@@ -12,6 +11,7 @@ class UsuarioCreate(BaseModel):
 class UsuarioUpdate(BaseModel):
     nombre: str | None = None
     contrasena: str | None = None
+    fcm_token: str | None = None  # actualizable desde el app al iniciar sesión
 
 
 class UsuarioPublico(BaseModel):
@@ -26,6 +26,7 @@ class UsuarioPublico(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     contrasena: str
+    fcm_token: str | None = None  # enviado al hacer login para registrar el dispositivo
 
 
 class TokenResponse(BaseModel):

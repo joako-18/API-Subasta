@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-
 from app.api.v1.endpoints import productos, pujas, usuarios
 
 api_router = APIRouter(prefix="/api/v1")

@@ -1,9 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
-
-from sqlalchemy import BigInteger, ForeignKey, Numeric, Text, func
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Numeric, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.db.database import Base
 
 
@@ -21,6 +19,15 @@ class Producto(Base):
     usuario_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False
     )
+
+    # ── Geolocalización ──────────────────────────────────────────────
+    latitud: Mapped[float | None] = mapped_column(Numeric(10, 7))
+    longitud: Mapped[float | None] = mapped_column(Numeric(10, 7))
+    ciudad: Mapped[str | None] = mapped_column(Text)
+    entrega_en_persona: Mapped[bool] = mapped_column(Boolean, server_default="0")
+
+    # ── Subasta relámpago ────────────────────────────────────────────
+    es_relampago: Mapped[bool] = mapped_column(Boolean, server_default="0")
 
     vendedor: Mapped["Usuario"] = relationship("Usuario", back_populates="productos")  # noqa: F821
     pujas: Mapped[list["Puja"]] = relationship(  # noqa: F821

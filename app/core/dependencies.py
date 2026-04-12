@@ -21,7 +21,6 @@ async def get_current_user(
     user_id = decode_access_token(token)
     if user_id is None:
         raise credentials_exception
-
     user = await db.get(Usuario, user_id)
     if user is None:
         raise credentials_exception

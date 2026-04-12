@@ -17,7 +17,7 @@ async def realizar_puja(
     db: AsyncSession = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    """HU-04: Registrar una puja y notificar en tiempo real por WebSocket."""
+    """HU-04: Registrar puja, broadcast WebSocket y FCM al postor anterior."""
     puja = await puja_service.realizar_puja(db, data, current_user.id)
 
     await manager.broadcast(
@@ -42,25 +42,23 @@ async def realizar_puja(
         fecha=puja.fecha,
     )
 
+
+# CRÍTICO: /ganador ANTES de /{producto_id} para evitar 404 por conflicto de rutas
 @router.get("/producto/{producto_id}/ganador", response_model=GanadorResponse)
 async def ganador(producto_id: int, db: AsyncSession = Depends(get_db)):
-    """HU-06: Obtener el ganador de la subasta finalizada."""
+    """HU-06: Ganador de la subasta finalizada. También envía FCM al ganador."""
     return await puja_service.obtener_ganador(db, producto_id)
 
 
 @router.get("/producto/{producto_id}", response_model=list[PujaPublica])
 async def historial(producto_id: int, db: AsyncSession = Depends(get_db)):
-    """HU-05: Historial de pujas de un producto, ordenado por fecha descendente."""
+    """HU-05: Historial de pujas ordenado por fecha descendente."""
     return await puja_service.listar_pujas_producto(db, producto_id)
 
 
 @router.websocket("/ws/{producto_id}")
 async def websocket_subasta(websocket: WebSocket, producto_id: int):
-    """
-    Canal en tiempo real para una subasta.
-    Los clientes se conectan y reciben actualizaciones JSON cuando
-    se registra una nueva puja (broadcast desde POST /pujas).
-    """
+    """Canal en tiempo real para una subasta."""
     await manager.connect(producto_id, websocket)
     try:
         while True:

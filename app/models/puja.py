@@ -1,9 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
-
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.db.database import Base
 
 

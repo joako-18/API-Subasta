@@ -1,18 +1,15 @@
 import json
 from collections import defaultdict
-from decimal import Decimal
-
 from fastapi import WebSocket
 
 
 class ConnectionManager:
     """
-    Gestiona las conexiones WebSocket agrupadas por producto_id.
-    Permite broadcast en tiempo real cuando se registra una nueva puja (HU-04).
+    Gestiona conexiones WebSocket agrupadas por producto_id.
+    Broadcast en tiempo real cuando se registra una nueva puja.
     """
 
     def __init__(self):
-        # { producto_id: [WebSocket, ...] }
         self._rooms: dict[int, list[WebSocket]] = defaultdict(list)
 
     async def connect(self, producto_id: int, websocket: WebSocket) -> None:
@@ -25,7 +22,7 @@ class ConnectionManager:
             room.remove(websocket)
 
     async def broadcast(self, producto_id: int, data: dict) -> None:
-        """Envía un mensaje JSON a todos los clientes en la sala del producto."""
+        """Envía JSON a todos los clientes en la sala del producto."""
         dead: list[WebSocket] = []
         message = json.dumps(data, default=str)
         for ws in self._rooms.get(producto_id, []):
