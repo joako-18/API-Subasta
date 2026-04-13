@@ -1,9 +1,9 @@
 import logging
 from typing import Optional
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Inicialización lazy de firebase-admin para no romper el arranque si no está configurado
 _firebase_ready = False
 
 
@@ -14,13 +14,29 @@ def _init_firebase() -> bool:
     try:
         import firebase_admin
         from firebase_admin import credentials
+
         if not firebase_admin._apps:
             cred = credentials.Certificate("app/core/firebase_credentials.json")
             firebase_admin.initialize_app(cred)
+
         _firebase_ready = True
+        logger.info("Firebase inicializado correctamente.")
         return True
+
+    except ImportError:
+        logger.error(
+            "❌ firebase_admin no está instalado. "
+            "Ejecuta: pip install firebase-admin"
+        )
+        return False
+    except FileNotFoundError:
+        logger.error(
+            "❌ No se encontró app/core/firebase_credentials.json. "
+            "Asegúrate de que el archivo de credenciales existe en esa ruta."
+        )
+        return False
     except Exception as e:
-        logger.warning(f"Firebase no inicializado (notificaciones deshabilitadas): {e}")
+        logger.error(f"❌ Error inicializando Firebase: {e}")
         return False
 
 
@@ -38,6 +54,7 @@ def send_notification(
         return False
     try:
         from firebase_admin import messaging
+
         msg = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
             data={str(k): str(v) for k, v in (data or {}).items()},
@@ -45,9 +62,11 @@ def send_notification(
             android=messaging.AndroidConfig(priority="high"),
         )
         messaging.send(msg)
+        logger.info(f"✅ Notificación enviada: '{title}' → token: {token[:20]}...")
         return True
+
     except Exception as e:
-        logger.error(f"Error FCM send_notification: {e}")
+        logger.error(f"❌ Error FCM send_notification: {e}")
         return False
 
 
@@ -86,7 +105,12 @@ def notify_cierre_proximo(fcm_token: str, nombre_producto: str, producto_id: int
     )
 
 
-def notify_nueva_subasta_geo(fcm_token: str, nombre_producto: str, ciudad: str, producto_id: int) -> None:
+def notify_nueva_subasta_geo(
+    fcm_token: str,
+    nombre_producto: str,
+    ciudad: str,
+    producto_id: int,
+) -> None:
     """Notifica de una nueva subasta en la ciudad del usuario."""
     send_notification(
         token=fcm_token,
