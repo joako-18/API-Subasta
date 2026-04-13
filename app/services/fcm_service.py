@@ -5,9 +5,10 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Ruta absoluta al JSON de credenciales, relativa a este mismo archivo
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-_CREDENTIALS_PATH = os.path.join(_BASE_DIR, "firebase_credentials.json")
+# fcm_service.py está en app/services/, las credenciales en app/core/
+_SERVICES_DIR = os.path.dirname(os.path.abspath(__file__))
+_CREDENTIALS_PATH = os.path.join(_SERVICES_DIR, "..", "core", "firebase_credentials.json")
+_CREDENTIALS_PATH = os.path.normpath(_CREDENTIALS_PATH)
 
 _firebase_ready = False
 
@@ -24,9 +25,7 @@ def _init_firebase() -> bool:
 
         if not os.path.exists(_CREDENTIALS_PATH):
             logger.error(
-                f"❌ No se encontró el archivo de credenciales en: {_CREDENTIALS_PATH}\n"
-                "   Descárgalo desde Firebase Console → Configuración → Cuentas de servicio "
-                "→ Generar nueva clave privada, y colócalo en app/core/firebase_credentials.json"
+                f"❌ No se encontró el archivo de credenciales en: {_CREDENTIALS_PATH}"
             )
             return False
 
@@ -39,9 +38,7 @@ def _init_firebase() -> bool:
         return True
 
     except ImportError:
-        logger.error(
-            "❌ firebase_admin no está instalado. Ejecuta: pip install firebase-admin"
-        )
+        logger.error("❌ firebase_admin no está instalado. Ejecuta: pip install firebase-admin")
         return False
     except Exception as e:
         logger.error(f"❌ Error inicializando Firebase: {e}")
