@@ -1,8 +1,13 @@
 import logging
+import os
 from typing import Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Ruta absoluta al JSON de credenciales, relativa a este mismo archivo
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_CREDENTIALS_PATH = os.path.join(_BASE_DIR, "firebase_credentials.json")
 
 _firebase_ready = False
 
@@ -15,24 +20,27 @@ def _init_firebase() -> bool:
         import firebase_admin
         from firebase_admin import credentials
 
+        logger.info(f"Buscando credenciales Firebase en: {_CREDENTIALS_PATH}")
+
+        if not os.path.exists(_CREDENTIALS_PATH):
+            logger.error(
+                f"❌ No se encontró el archivo de credenciales en: {_CREDENTIALS_PATH}\n"
+                "   Descárgalo desde Firebase Console → Configuración → Cuentas de servicio "
+                "→ Generar nueva clave privada, y colócalo en app/core/firebase_credentials.json"
+            )
+            return False
+
         if not firebase_admin._apps:
-            cred = credentials.Certificate("app/core/firebase_credentials.json")
+            cred = credentials.Certificate(_CREDENTIALS_PATH)
             firebase_admin.initialize_app(cred)
 
         _firebase_ready = True
-        logger.info("Firebase inicializado correctamente.")
+        logger.info("✅ Firebase inicializado correctamente.")
         return True
 
     except ImportError:
         logger.error(
-            "❌ firebase_admin no está instalado. "
-            "Ejecuta: pip install firebase-admin"
-        )
-        return False
-    except FileNotFoundError:
-        logger.error(
-            "❌ No se encontró app/core/firebase_credentials.json. "
-            "Asegúrate de que el archivo de credenciales existe en esa ruta."
+            "❌ firebase_admin no está instalado. Ejecuta: pip install firebase-admin"
         )
         return False
     except Exception as e:
@@ -46,10 +54,6 @@ def send_notification(
     body: str,
     data: Optional[dict] = None,
 ) -> bool:
-    """
-    Envía una notificación push a un dispositivo.
-    Retorna True si fue enviada, False si FCM no está configurado o falla.
-    """
     if not _init_firebase():
         return False
     try:
@@ -70,13 +74,7 @@ def send_notification(
         return False
 
 
-def notify_superado(
-    fcm_token: str,
-    nombre_producto: str,
-    nueva_cantidad: str,
-    producto_id: int,
-) -> None:
-    """Notifica al postor que fue superado."""
+def notify_superado(fcm_token, nombre_producto, nueva_cantidad, producto_id):
     send_notification(
         token=fcm_token,
         title="😮 ¡Te superaron!",
@@ -85,8 +83,7 @@ def notify_superado(
     )
 
 
-def notify_ganador(fcm_token: str, nombre_producto: str, producto_id: int) -> None:
-    """Notifica al ganador de la subasta."""
+def notify_ganador(fcm_token, nombre_producto, producto_id):
     send_notification(
         token=fcm_token,
         title="🏆 ¡Ganaste!",
@@ -95,8 +92,7 @@ def notify_ganador(fcm_token: str, nombre_producto: str, producto_id: int) -> No
     )
 
 
-def notify_cierre_proximo(fcm_token: str, nombre_producto: str, producto_id: int) -> None:
-    """Notifica que la subasta cierra en 1 minuto."""
+def notify_cierre_proximo(fcm_token, nombre_producto, producto_id):
     send_notification(
         token=fcm_token,
         title="⏰ Subasta terminando",
@@ -105,13 +101,7 @@ def notify_cierre_proximo(fcm_token: str, nombre_producto: str, producto_id: int
     )
 
 
-def notify_nueva_subasta_geo(
-    fcm_token: str,
-    nombre_producto: str,
-    ciudad: str,
-    producto_id: int,
-) -> None:
-    """Notifica de una nueva subasta en la ciudad del usuario."""
+def notify_nueva_subasta_geo(fcm_token, nombre_producto, ciudad, producto_id):
     send_notification(
         token=fcm_token,
         title="📍 Nueva subasta cerca",
