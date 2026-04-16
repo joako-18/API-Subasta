@@ -5,10 +5,8 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# fcm_service.py está en app/services/, las credenciales en app/core/
 _SERVICES_DIR = os.path.dirname(os.path.abspath(__file__))
-_CREDENTIALS_PATH = os.path.join(_SERVICES_DIR, "..", "core", "firebase_credentials.json")
-_CREDENTIALS_PATH = os.path.normpath(_CREDENTIALS_PATH)
+_CREDENTIALS_PATH = os.path.normpath(os.path.join(_SERVICES_DIR, "..", "core", "firebase_credentials.json"))
 
 _firebase_ready = False
 
@@ -24,9 +22,7 @@ def _init_firebase() -> bool:
         logger.info(f"Buscando credenciales Firebase en: {_CREDENTIALS_PATH}")
 
         if not os.path.exists(_CREDENTIALS_PATH):
-            logger.error(
-                f"❌ No se encontró el archivo de credenciales en: {_CREDENTIALS_PATH}"
-            )
+            logger.error(f"❌ No se encontró el archivo de credenciales en: {_CREDENTIALS_PATH}")
             return False
 
         if not firebase_admin._apps:
@@ -55,12 +51,19 @@ def send_notification(
         return False
     try:
         from firebase_admin import messaging
-
         msg = messaging.Message(
-            notification=messaging.Notification(title=title, body=body),
-            data={str(k): str(v) for k, v in (data or {}).items()},
+            data={
+                "title": title,
+                "body": body,
+                **{str(k): str(v) for k, v in (data or {}).items()},
+            },
             token=token,
-            android=messaging.AndroidConfig(priority="high"),
+            android=messaging.AndroidConfig(
+                priority="high",
+                notification=messaging.AndroidNotification(
+                    channel_id="outbid_channel",
+                ),
+            ),
         )
         messaging.send(msg)
         logger.info(f"✅ Notificación enviada: '{title}' → token: {token[:20]}...")
